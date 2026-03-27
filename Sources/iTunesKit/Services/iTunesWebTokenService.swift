@@ -3,6 +3,9 @@ import Foundation
 /// A service that scrapes the Apple Music web player to obtain a developer token.
 public actor iTunesWebTokenService {
     
+    /// The shared instance for token management.
+    public static let shared = iTunesWebTokenService()
+    
     private let session: URLSession
     private var cachedToken: String?
     private var tokenExpiry: Date?

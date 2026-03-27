@@ -12,7 +12,7 @@ public actor iTunesWebServiceClient {
     private let minRequestInterval: TimeInterval = 0.5
     
     public init(
-        tokenService: iTunesWebTokenService,
+        tokenService: iTunesWebTokenService = .shared,
         baseURL: String = Secrets.ampBaseURL,
         session: URLSession = .shared
     ) {
