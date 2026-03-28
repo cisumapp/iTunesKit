@@ -12,7 +12,7 @@ Add `iTunesKit` to your project via Swift Package Manager.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/atpugvaraa/iTunesKit.git", from: "1.0.0")
+    .package(url: "https://gitlab.com/atpugvaraa/ituneskit.git", from: "1.0.0")
 ]
 ```
 
