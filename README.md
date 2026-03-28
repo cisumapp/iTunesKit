@@ -48,8 +48,7 @@ Scrape the dynamic web player to fetch editorial video details like `.motionDeta
 ```swift
 import iTunesKit
 
-let tokenService = iTunesWebTokenService()
-let webClient = iTunesWebServiceClient(tokenService: tokenService)
+let webClient = iTunesWebServiceClient()
 let catalogService = WebCatalogService(client: webClient)
 
 func fetchMotionVideo(songId: String) async {
