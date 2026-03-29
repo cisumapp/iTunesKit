@@ -133,6 +133,95 @@ final class iTunesKitTests: XCTestCase {
         XCTAssertEqual(secondRequestCount, 2)
     }
 
+    func testSelectMotionArtworkPrefersSongRelationshipAlbumOrder() {
+        let relationshipURL = URL(string: "https://example.com/relationship.m3u8")!
+        let fallbackURL = URL(string: "https://example.com/fallback.m3u8")!
+        let response = Self.makeCatalogResponse(
+            songID: "42",
+            relationshipAlbumID: "album-relationship",
+            relationshipURL: relationshipURL,
+            fallbackAlbumID: "album-fallback",
+            fallbackURL: fallbackURL
+        )
+
+        let selection = iTunesKit.selectMotionArtwork(in: response, preferredSongID: "42")
+
+        XCTAssertEqual(selection?.albumID, "album-relationship")
+        XCTAssertEqual(selection?.sourceURL, relationshipURL)
+    }
+
+    func testResolveMotionArtworkReturnsCollectionAndAlbumMetadata() async throws {
+        let token = makeFakeToken()
+        let cacheURL = Self.makeTemporaryCacheURL(name: "resolve-motion-token-cache.json")
+
+        let relationshipURL = URL(string: "https://example.com/relationship.m3u8")!
+        let fallbackURL = URL(string: "https://example.com/fallback.m3u8")!
+        let catalogResponse = Self.makeCatalogResponse(
+            songID: "42",
+            relationshipAlbumID: "album-relationship",
+            relationshipURL: relationshipURL,
+            fallbackAlbumID: "album-fallback",
+            fallbackURL: fallbackURL
+        )
+        let catalogData = try JSONEncoder().encode(catalogResponse)
+
+        let session = Self.makeSession { request in
+            guard let url = request.url?.absoluteString else {
+                return Self.makeStubResponse(url: request.url, body: Data(), statusCode: 400)
+            }
+
+            if url.contains("itunes.apple.com/search") {
+                let json = """
+                {
+                  "resultCount": 1,
+                  "results": [
+                    {
+                      "trackId": 42,
+                      "collectionId": 9001,
+                      "trackName": "Test Song",
+                      "artistName": "Test Artist"
+                    }
+                  ]
+                }
+                """
+
+                return Self.makeStubResponse(url: request.url, body: Data(json.utf8))
+            }
+
+            if url == Secrets.webNewURL {
+                let html = "<html><head><script src=\"/assets/index~test.js\"></script></head><body></body></html>"
+                return Self.makeStubResponse(url: request.url, body: Data(html.utf8))
+            }
+
+            if url == "https://music.apple.com/assets/index~test.js" {
+                let script = "const devToken = \"\(token)\";"
+                return Self.makeStubResponse(url: request.url, body: Data(script.utf8))
+            }
+
+            if url.contains("amp-api.music.apple.com/catalog/us/songs/42") {
+                return Self.makeStubResponse(url: request.url, body: catalogData)
+            }
+
+            return Self.makeStubResponse(url: request.url, body: Data(), statusCode: 404)
+        }
+
+        let searchService = SearchService(session: session)
+        let tokenService = iTunesWebTokenService(session: session, cacheURL: cacheURL)
+        let webClient = iTunesWebServiceClient(tokenService: tokenService, session: session)
+        let webCatalogService = WebCatalogService(client: webClient)
+        let kit = iTunesKit(
+            searchService: searchService,
+            makeWebCatalogService: { webCatalogService }
+        )
+
+        let resolution = try await kit.resolveMotionArtwork(term: "test song test artist")
+
+        XCTAssertEqual(resolution?.trackID, 42)
+        XCTAssertEqual(resolution?.collectionID, 9001)
+        XCTAssertEqual(resolution?.catalogAlbumID, "album-relationship")
+        XCTAssertEqual(resolution?.sourceURL, relationshipURL)
+    }
+
     private static func makeSession(handler: @escaping @Sendable (URLRequest) -> StubbedResponse) -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StubURLProtocol.self]
@@ -159,6 +248,101 @@ final class iTunesKitTests: XCTestCase {
         FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
             .appendingPathComponent(name)
+    }
+
+    private static func makeCatalogResponse(
+        songID: String,
+        relationshipAlbumID: String,
+        relationshipURL: URL,
+        fallbackAlbumID: String,
+        fallbackURL: URL
+    ) -> iTunesCatalogResponse {
+        let relationshipAlbum = Album(
+            id: relationshipAlbumID,
+            type: "albums",
+            href: "/v1/catalog/us/albums/\(relationshipAlbumID)",
+            attributes: AlbumAttributes(
+                editorialVideo: makeEditorialVideo(url: relationshipURL.absoluteString)
+            )
+        )
+
+        let fallbackAlbum = Album(
+            id: fallbackAlbumID,
+            type: "albums",
+            href: "/v1/catalog/us/albums/\(fallbackAlbumID)",
+            attributes: AlbumAttributes(
+                editorialVideo: makeEditorialVideo(url: fallbackURL.absoluteString)
+            )
+        )
+
+        let song = Song(
+            id: songID,
+            type: "songs",
+            href: "/v1/catalog/us/songs/\(songID)",
+            attributes: SongAttributes(
+                hasLyrics: true,
+                name: "Test Song",
+                url: "https://music.apple.com/us/song/test-song/\(songID)"
+            ),
+            relationships: SongRelationships(
+                albums: RelationshipAlbums(
+                    href: "/v1/catalog/us/songs/\(songID)/albums",
+                    data: [
+                        iTunesCatalogData(
+                            id: relationshipAlbumID,
+                            type: "albums",
+                            href: "/v1/catalog/us/albums/\(relationshipAlbumID)"
+                        )
+                    ]
+                )
+            )
+        )
+
+        return iTunesCatalogResponse(
+            data: [
+                iTunesCatalogData(
+                    id: songID,
+                    type: "songs",
+                    href: "/v1/catalog/us/songs/\(songID)"
+                )
+            ],
+            resources: Resources(
+                albums: [
+                    fallbackAlbumID: fallbackAlbum,
+                    relationshipAlbumID: relationshipAlbum
+                ],
+                songs: [
+                    songID: song
+                ]
+            )
+        )
+    }
+
+    private static func makeEditorialVideo(url: String) -> EditorialVideo {
+        let motion = makeMotionVideo(url: url)
+        return EditorialVideo(
+            motionDetailSquare: motion,
+            motionDetailTall: motion,
+            motionSquareVideo1X1: motion,
+            motionTallVideo3X4: motion
+        )
+    }
+
+    private static func makeMotionVideo(url: String) -> MotionVideo {
+        MotionVideo(
+            previewFrame: PreviewFrame(
+                bgColor: "000000",
+                hasP3: false,
+                height: 100,
+                textColor1: "FFFFFF",
+                textColor2: "FFFFFF",
+                textColor3: "FFFFFF",
+                textColor4: "FFFFFF",
+                url: "https://example.com/preview.jpg",
+                width: 100
+            ),
+            video: url
+        )
     }
 
     private struct StubbedResponse {
