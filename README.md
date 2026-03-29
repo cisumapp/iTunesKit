@@ -6,6 +6,10 @@
 [![](https://img.shields.io/badge/Swift-6.2-orange.svg)]()
 [![](https://img.shields.io/badge/SPM-Compatible-green.svg)]()
 
+# Legal Notice
+
+> **Disclaimer**: This repository and any associated code are provided "as is" without warranty of any kind, either expressed or implied. The author of this repository does not accept any responsibility for the use or misuse of this repository or its contents. The author does not endorse any actions or consequences arising from the use of this repository. Any copies, forks, or re-uploads made by other users are not the responsibility of the author. The repository is solely intended as a Proof Of Concept for educational purposes regarding the use of a service's private API. By using this repository, you acknowledge that the author makes no claims about the accuracy, legality, or safety of the code and accepts no liability for any issues that may arise. More information can be found [HERE](./LEGAL_NOTICE.md).
+
 ## 📦 Installation
 
 Add `iTunesKit` to your project via Swift Package Manager.
