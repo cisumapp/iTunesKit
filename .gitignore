@@ -3,3 +3,11 @@ Tests/.DS_Store
 Sources/iTunesKit/.DS_Store
 Sources/.DS_Store
 /.swiftpm
+/.gradle
+.DS_Store
+/.idea
+/.kotlin
+local.properties
+**/build/
+*.iml
+/gradle
