@@ -2,11 +2,11 @@ import Foundation
 
 public actor SearchService {
     private let client: NetworkClient
-    
+
     public init(session: URLSession = .shared) {
         self.client = NetworkClient(baseURL: Secrets.itunesBaseURL, session: session)
     }
-    
+
     /// Searches the iTunes Store for content.
     /// - Parameters:
     ///   - term: The URL-encoded text string you want to search for.
@@ -36,22 +36,22 @@ public actor SearchService {
             URLQueryItem(name: "limit", value: "\(limit)"),
             URLQueryItem(name: "lang", value: lang),
             URLQueryItem(name: "version", value: "\(version)"),
-            URLQueryItem(name: "explicit", value: explicit ? "Yes" : "No")
+            URLQueryItem(name: "explicit", value: explicit ? "Yes" : "No"),
         ]
-        
-        if let media = media {
+
+        if let media {
             queryItems.append(URLQueryItem(name: "media", value: media))
         }
-        if let entity = entity {
+        if let entity {
             queryItems.append(URLQueryItem(name: "entity", value: entity))
         }
-        if let attribute = attribute {
+        if let attribute {
             queryItems.append(URLQueryItem(name: "attribute", value: attribute))
         }
-        
+
         return try await client.send("search", queryItems: queryItems)
     }
-    
+
     /// Looks up content by ID (e.g., iTunes ID, AMG ID, UPC, ISBN).
     /// - Parameters:
     ///   - id: The id you want to look up (e.g., 909253).
@@ -71,17 +71,17 @@ public actor SearchService {
         sort: String? = nil
     ) async throws -> iTunesSearchResponse {
         var queryItems = [URLQueryItem]()
-        
-        if let id = id { queryItems.append(URLQueryItem(name: "id", value: id)) }
+
+        if let id { queryItems.append(URLQueryItem(name: "id", value: id)) }
         if let id = amgArtistId { queryItems.append(URLQueryItem(name: "amgArtistId", value: id)) }
         if let id = amgAlbumId { queryItems.append(URLQueryItem(name: "amgAlbumId", value: id)) }
         if let id = amgVideoId { queryItems.append(URLQueryItem(name: "amgVideoId", value: id)) }
         if let id = upc { queryItems.append(URLQueryItem(name: "upc", value: id)) }
         if let id = isbn { queryItems.append(URLQueryItem(name: "isbn", value: id)) }
-        if let entity = entity { queryItems.append(URLQueryItem(name: "entity", value: entity)) }
-        if let limit = limit { queryItems.append(URLQueryItem(name: "limit", value: "\(limit)")) }
-        if let sort = sort { queryItems.append(URLQueryItem(name: "sort", value: sort)) }
-        
+        if let entity { queryItems.append(URLQueryItem(name: "entity", value: entity)) }
+        if let limit { queryItems.append(URLQueryItem(name: "limit", value: "\(limit)")) }
+        if let sort { queryItems.append(URLQueryItem(name: "sort", value: sort)) }
+
         return try await client.send("lookup", queryItems: queryItems)
     }
 }

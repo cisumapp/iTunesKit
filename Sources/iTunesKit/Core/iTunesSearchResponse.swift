@@ -8,6 +8,7 @@
 import Foundation
 
 // MARK: - iTunes Search API Models
+
 public struct iTunesSearchResponse: Codable, Sendable {
     public let resultCount: Int
     public let results: [iTunesSearchResult]

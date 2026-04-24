@@ -22,10 +22,9 @@ public struct iTunesMotionArtworkResolution: Sendable, Equatable {
 /// The main entry point for the iTunesKit SDK.
 /// Provides a simple interface for searching the legacy iTunes Music Store.
 public final class iTunesKit: iTunesClient, @unchecked Sendable {
-    
     private let searchService: SearchService
     private let makeWebCatalogService: @Sendable () -> WebCatalogService
-    
+
     public init() {
         self.searchService = SearchService()
         self.makeWebCatalogService = {
@@ -40,7 +39,7 @@ public final class iTunesKit: iTunesClient, @unchecked Sendable {
         self.searchService = searchService
         self.makeWebCatalogService = makeWebCatalogService
     }
-    
+
     /// Searches for songs using the legacy iTunes Search API.
     /// - Parameter term: The search term (e.g., artist name, song title).
     /// - Returns: A list of search results.
@@ -48,7 +47,7 @@ public final class iTunesKit: iTunesClient, @unchecked Sendable {
         let response = try await search(term: term, country: "us", media: "music", limit: 50)
         return response.results
     }
-    
+
     /// Low-level search method for custom queries.
     public func search(term: String, country: String, media: String, limit: Int) async throws -> iTunesSearchResponse {
         try await searchService.search(term: term, country: country, media: media, limit: limit)
@@ -62,7 +61,8 @@ public final class iTunesKit: iTunesClient, @unchecked Sendable {
     public func resolveMotionArtwork(term: String, country: String = "us") async throws -> iTunesMotionArtworkResolution? {
         let searchResponse = try await search(term: term, country: country, media: "music", limit: 1)
         guard let searchMatch = searchResponse.results.first,
-              let trackID = searchMatch.trackId else {
+              let trackID = searchMatch.trackId
+        else {
             return nil
         }
 
@@ -90,7 +90,8 @@ public final class iTunesKit: iTunesClient, @unchecked Sendable {
     ) -> (sourceURL: URL, albumID: String)? {
         for albumID in preferredAlbumIDs(in: response, preferredSongID: preferredSongID) {
             guard let album = response.resources.albums[albumID],
-                  let sourceURL = firstMotionArtworkURL(from: album.attributes.editorialVideo) else {
+                  let sourceURL = firstMotionArtworkURL(from: album.attributes.editorialVideo)
+            else {
                 continue
             }
 
@@ -110,7 +111,8 @@ public final class iTunesKit: iTunesClient, @unchecked Sendable {
         let targetSongID = preferredSongID ?? fallbackSongID
 
         if let targetSongID,
-           let relationships = response.resources.songs[targetSongID]?.relationships?.albums.data {
+           let relationships = response.resources.songs[targetSongID]?.relationships?.albums.data
+        {
             for relationship in relationships {
                 let albumID = relationship.id.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !albumID.isEmpty else { continue }
@@ -132,7 +134,7 @@ public final class iTunesKit: iTunesClient, @unchecked Sendable {
             editorialVideo.motionDetailTall.video,
             editorialVideo.motionTallVideo3X4.video,
             editorialVideo.motionDetailSquare.video,
-            editorialVideo.motionSquareVideo1X1.video
+            editorialVideo.motionSquareVideo1X1.video,
         ]
 
         for candidate in candidates {

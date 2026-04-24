@@ -8,12 +8,14 @@
 import Foundation
 
 // MARK: - Apple Music Catalog API Models
+
 public struct iTunesCatalogResponse: Codable, Sendable {
     public let data: [iTunesCatalogData]
     public let resources: Resources
 }
 
 // MARK: - Data
+
 public struct iTunesCatalogData: Codable, Sendable {
     public let id: String
     public let type: String
@@ -21,12 +23,14 @@ public struct iTunesCatalogData: Codable, Sendable {
 }
 
 // MARK: - Resources
+
 public struct Resources: Codable, Sendable {
     public let albums: [String: Album]
     public let songs: [String: Song]
 }
 
 // MARK: - Album
+
 public struct Album: Codable, Sendable {
     public let id: String
     public let type: String
@@ -39,6 +43,7 @@ public struct AlbumAttributes: Codable, Sendable {
 }
 
 // MARK: - Song
+
 public struct Song: Codable, Sendable {
     public let id: String
     public let type: String
@@ -85,7 +90,6 @@ public struct PreviewFrame: Codable, Sendable {
     public let url: String
     public let width: Int
 }
-
 
 // This file was generated from JSON Schema using quicktype, do not modify it directly.
 // To parse the JSON, add this file to your project and do:

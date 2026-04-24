@@ -1,6 +1,6 @@
 import Foundation
-import XCTest
 @testable import iTunesKit
+import XCTest
 
 final class iTunesKitTests: XCTestCase {
     func testSearchServiceDecodesSearchResponse() async throws {
@@ -93,6 +93,65 @@ final class iTunesKitTests: XCTestCase {
         XCTAssertEqual(secondRequestCount, 4)
     }
 
+    func testWebClientRetriesWithFreshTokenAfterUnauthorized() async throws {
+        let firstToken = makeFakeToken(suffix: "one")
+        let secondToken = makeFakeToken(suffix: "two")
+        let cacheURL = Self.makeTemporaryCacheURL(name: "retry-token-cache.json")
+        let requests = RequestTracker()
+
+        let session = Self.makeSession { request in
+            requests.increment()
+
+            let requestNumber = requests.currentValue()
+
+            guard let url = request.url?.absoluteString else {
+                return Self.makeStubResponse(url: request.url, body: Data(), statusCode: 400)
+            }
+
+            if url == Secrets.webNewURL {
+                let html = "<html><head><script src=\"/assets/index~test.js\"></script></head><body></body></html>"
+                return Self.makeStubResponse(url: request.url, body: Data(html.utf8))
+            }
+
+            if url == "https://music.apple.com/assets/index~test.js" {
+                let token = requestNumber <= 3 ? firstToken : secondToken
+                let script = "const devToken = \"\(token)\";"
+                return Self.makeStubResponse(url: request.url, body: Data(script.utf8))
+            }
+
+            if url.contains("amp-api.music.apple.com") {
+                let authorization = request.value(forHTTPHeaderField: "Authorization")
+
+                if requestNumber == 3 {
+                    XCTAssertEqual(authorization, "Bearer \(firstToken)")
+                    return Self.makeStubResponse(url: request.url, body: Data(), statusCode: 401)
+                }
+
+                XCTAssertEqual(authorization, "Bearer \(secondToken)")
+                let json = """
+                { "message": "ok" }
+                """
+                return Self.makeStubResponse(url: request.url, body: Data(json.utf8))
+            }
+
+            return Self.makeStubResponse(url: request.url, body: Data(), statusCode: 404)
+        }
+
+        struct EchoResponse: Codable, Equatable {
+            let message: String
+        }
+
+        let client = iTunesWebServiceClient(
+            tokenService: iTunesWebTokenService(session: session, cacheURL: cacheURL),
+            session: session
+        )
+
+        let response: EchoResponse = try await client.send("test")
+
+        XCTAssertEqual(response, EchoResponse(message: "ok"))
+        XCTAssertEqual(requests.currentValue(), 6)
+    }
+
     func testTokenServiceCachesAcrossInstances() async throws {
         let token = makeFakeToken()
         let cacheURL = Self.makeTemporaryCacheURL(name: "token-cache.json")
@@ -133,9 +192,9 @@ final class iTunesKitTests: XCTestCase {
         XCTAssertEqual(secondRequestCount, 2)
     }
 
-    func testSelectMotionArtworkPrefersSongRelationshipAlbumOrder() {
-        let relationshipURL = URL(string: "https://example.com/relationship.m3u8")!
-        let fallbackURL = URL(string: "https://example.com/fallback.m3u8")!
+    func testSelectMotionArtworkPrefersSongRelationshipAlbumOrder() throws {
+        let relationshipURL = try XCTUnwrap(URL(string: "https://example.com/relationship.m3u8"))
+        let fallbackURL = try XCTUnwrap(URL(string: "https://example.com/fallback.m3u8"))
         let response = Self.makeCatalogResponse(
             songID: "42",
             relationshipAlbumID: "album-relationship",
@@ -154,8 +213,8 @@ final class iTunesKitTests: XCTestCase {
         let token = makeFakeToken()
         let cacheURL = Self.makeTemporaryCacheURL(name: "resolve-motion-token-cache.json")
 
-        let relationshipURL = URL(string: "https://example.com/relationship.m3u8")!
-        let fallbackURL = URL(string: "https://example.com/fallback.m3u8")!
+        let relationshipURL = try XCTUnwrap(URL(string: "https://example.com/relationship.m3u8"))
+        let fallbackURL = try XCTUnwrap(URL(string: "https://example.com/fallback.m3u8"))
         let catalogResponse = Self.makeCatalogResponse(
             songID: "42",
             relationshipAlbumID: "album-relationship",
@@ -198,7 +257,7 @@ final class iTunesKitTests: XCTestCase {
                 return Self.makeStubResponse(url: request.url, body: Data(script.utf8))
             }
 
-            if url.contains("amp-api.music.apple.com/catalog/us/songs/42") {
+            if url.contains("amp-api.music.apple.com/v1/catalog/us/songs/42") {
                 return Self.makeStubResponse(url: request.url, body: catalogData)
             }
 
@@ -240,8 +299,8 @@ final class iTunesKitTests: XCTestCase {
         return StubbedResponse(response: response, body: body)
     }
 
-    private func makeFakeToken() -> String {
-        "eyJ" + String(repeating: "a", count: 210) + ".bbb.ccc"
+    private func makeFakeToken(suffix: String = "") -> String {
+        "eyJ" + String(repeating: "a", count: 210) + suffix + ".bbb.ccc"
     }
 
     private static func makeTemporaryCacheURL(name: String) -> URL {
@@ -292,7 +351,7 @@ final class iTunesKitTests: XCTestCase {
                             id: relationshipAlbumID,
                             type: "albums",
                             href: "/v1/catalog/us/albums/\(relationshipAlbumID)"
-                        )
+                        ),
                     ]
                 )
             )
@@ -304,15 +363,15 @@ final class iTunesKitTests: XCTestCase {
                     id: songID,
                     type: "songs",
                     href: "/v1/catalog/us/songs/\(songID)"
-                )
+                ),
             ],
             resources: Resources(
                 albums: [
                     fallbackAlbumID: fallbackAlbum,
-                    relationshipAlbumID: relationshipAlbum
+                    relationshipAlbumID: relationshipAlbum,
                 ],
                 songs: [
-                    songID: song
+                    songID: song,
                 ]
             )
         )
@@ -370,7 +429,7 @@ final class iTunesKitTests: XCTestCase {
     private final class StubURLProtocol: URLProtocol {
         nonisolated(unsafe) static var requestHandler: (@Sendable (URLRequest) -> StubbedResponse)?
 
-        override class func canInit(with request: URLRequest) -> Bool {
+        override class func canInit(with _: URLRequest) -> Bool {
             true
         }
 
