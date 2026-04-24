@@ -58,6 +58,7 @@ public actor NetworkClient {
         }
         
         guard let finalURL = components?.url else { throw URLError(.badURL) }
+        iTunesDebugLogger.log("Sending \(method.rawValue) request to \(finalURL.path)")
         
         var request = URLRequest(url: finalURL)
         request.httpMethod = method.rawValue
@@ -80,6 +81,7 @@ public actor NetworkClient {
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
             let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+            iTunesDebugLogger.log("Request failed with status \(statusCode)")
             print("❌ iTunesKit: Network Error (\(statusCode)) for URL: \(request.url?.absoluteString ?? "unknown")")
             if let errorString = String(data: data, encoding: .utf8) {
                 print("❌ iTunesKit: Response Body: \(errorString)")
@@ -87,6 +89,7 @@ public actor NetworkClient {
             throw URLError(.badServerResponse)
         }
         
+        iTunesDebugLogger.log("Request succeeded (\(data.count) bytes)")
         return data
     }
     

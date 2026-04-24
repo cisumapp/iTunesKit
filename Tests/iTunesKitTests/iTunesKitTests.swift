@@ -198,7 +198,7 @@ final class iTunesKitTests: XCTestCase {
                 return Self.makeStubResponse(url: request.url, body: Data(script.utf8))
             }
 
-            if url.contains("amp-api.music.apple.com/catalog/us/songs/42") {
+            if url.contains("amp-api.music.apple.com/v1/catalog/us/songs/42") {
                 return Self.makeStubResponse(url: request.url, body: catalogData)
             }
 
