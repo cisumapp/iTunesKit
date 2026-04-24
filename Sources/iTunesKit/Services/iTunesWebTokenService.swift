@@ -1,6 +1,6 @@
 import Foundation
 
-/// A service that scrapes the Apple Music web player to obtain a developer token.
+/// A service that scrapes the Apple Music web player to obtain and cache a developer token.
 public actor iTunesWebTokenService {
 
     /// The shared instance for token management.
@@ -18,8 +18,8 @@ public actor iTunesWebTokenService {
     private var tokenExpiry: Date?
     private var lastScrapeDate: Date?
 
-    // Minimum time between scrapes to avoid spamming Apple's servers
-    private let minScrapeInterval: TimeInterval = 3600 // 1 hour
+    // Minimum time between scrapes to avoid spamming Apple's servers.
+    private let minScrapeInterval: TimeInterval = 3600
 
     public init(session: URLSession = .shared, cacheURL: URL? = nil) {
         self.session = session
@@ -32,15 +32,17 @@ public actor iTunesWebTokenService {
         }
     }
 
-    /// Fetches a valid developer token by scraping the Apple Music application script.
-    public func fetchToken() async throws -> String {
+    /// Fetches a developer token, reusing the cached token until an explicit refresh is needed.
+    public func fetchToken(forceRefresh: Bool = false) async throws -> String {
         let now = Date()
 
-        if let token = validCachedToken(now: now) {
+        if !forceRefresh, let token = validCachedToken(now: now) {
             return token
         }
 
-        if let lastScrape = lastScrapeDate, now.timeIntervalSince(lastScrape) < minScrapeInterval {
+        if !forceRefresh,
+           let lastScrape = lastScrapeDate,
+           now.timeIntervalSince(lastScrape) < minScrapeInterval {
             print("⚠️ iTunesKit: Rate limiting scrape. Using last known token (or failing if none).")
             if let token = validCachedToken(now: now) { return token }
             throw URLError(.cannotConnectToHost)
@@ -90,8 +92,8 @@ public actor iTunesWebTokenService {
         
         if let token = findToken(in: jsContent) {
             self.cachedToken = token
-            self.tokenExpiry = Date().addingTimeInterval(7200)
-            self.lastScrapeDate = scrapeDate
+                    self.tokenExpiry = Date().addingTimeInterval(7200)
+                    self.lastScrapeDate = scrapeDate
             persistState()
             print("✅ iTunesKit: Successfully obtained devToken from script")
             return token
@@ -99,6 +101,23 @@ public actor iTunesWebTokenService {
 
         print("❌ iTunesKit: Failed to find devToken in application script")
         throw URLError(.cannotParseResponse)
+    }
+
+    public func invalidateCachedToken() {
+        cachedToken = nil
+        tokenExpiry = nil
+        lastScrapeDate = nil
+        persistState()
+    }
+
+    private func validCachedToken(now: Date) -> String? {
+        guard let token = cachedToken,
+              let expiry = tokenExpiry,
+              expiry > now else {
+            return nil
+        }
+
+        return token
     }
 
     private func findToken(in text: String) -> String? {
@@ -117,14 +136,6 @@ public actor iTunesWebTokenService {
             }
         }
         return nil
-    }
-
-    private func validCachedToken(now: Date) -> String? {
-        guard let token = cachedToken, let expiry = tokenExpiry, expiry > now else {
-            return nil
-        }
-
-        return token
     }
 
     private func persistState() {

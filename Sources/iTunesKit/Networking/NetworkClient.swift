@@ -58,6 +58,7 @@ public actor NetworkClient {
         }
         
         guard let finalURL = components?.url else { throw URLError(.badURL) }
+        iTunesDebugLogger.log("iTunesKit: Sending \(method.rawValue) request to \(finalURL.path)")
         
         var request = URLRequest(url: finalURL)
         request.httpMethod = method.rawValue
@@ -77,17 +78,59 @@ public actor NetworkClient {
             }
         }
         
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
-            print("❌ iTunesKit: Network Error (\(statusCode)) for URL: \(request.url?.absoluteString ?? "unknown")")
-            if let errorString = String(data: data, encoding: .utf8) {
-                print("❌ iTunesKit: Response Body: \(errorString)")
+        var lastError: Error?
+        let maxRetries = 2
+        
+        for attempt in 0...maxRetries {
+            if attempt > 0 {
+                let delay = Double(pow(2.0, Double(attempt)))
+                iTunesDebugLogger.log("iTunesKit: Retrying \(finalURL.path) in \(delay)s (attempt \(attempt)/\(maxRetries))")
+                try? await Task.sleep(for: .seconds(delay))
             }
-            throw URLError(.badServerResponse)
+            
+            do {
+                let (data, response) = try await session.data(for: request)
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    iTunesDebugLogger.log("iTunesKit: Request failed: No HTTP response")
+                    throw URLError(.badServerResponse)
+                }
+
+                if (200...299).contains(httpResponse.statusCode) {
+                    iTunesDebugLogger.log("iTunesKit: Request succeeded (\(data.count) bytes)")
+                    return data
+                } else {
+                    let statusCode = httpResponse.statusCode
+                    iTunesDebugLogger.log("iTunesKit: Request failed with status \(statusCode)")
+                    
+                    if statusCode >= 500 {
+                        lastError = URLError(.badServerResponse)
+                        continue
+                    } else {
+                        throw URLError(.badServerResponse)
+                    }
+                }
+            } catch {
+                lastError = error
+                iTunesDebugLogger.log("iTunesKit: Request encountered error: \(error.localizedDescription)")
+                
+                let nsError = error as NSError
+                let retryableCodes: [Int] = [
+                    URLError.timedOut.rawValue,
+                    URLError.notConnectedToInternet.rawValue,
+                    URLError.networkConnectionLost.rawValue,
+                    URLError.cannotConnectToHost.rawValue
+                ]
+                
+                if retryableCodes.contains(nsError.code) {
+                    continue
+                } else {
+                    throw error
+                }
+            }
         }
         
-        return data
+        throw lastError ?? URLError(.unknown)
     }
     
     // Convenience for backward compatibility (optional, but good practice)
