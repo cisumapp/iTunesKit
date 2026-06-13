@@ -84,7 +84,7 @@ public actor iTunesWebServiceClient {
         }
 
         if httpResponse.statusCode == 401 {
-            print("⚠️ iTunesKit Web API: received 401 for \(url.absoluteString); refreshing token.")
+            iTunesLog.debug(" iTunesKit Web API: received 401 for \(url.absoluteString); refreshing token.")
             await tokenService.invalidateCachedToken()
 
             if allowUnauthorizedRetry {
@@ -101,9 +101,9 @@ public actor iTunesWebServiceClient {
         }
 
         if !(200 ... 299).contains(httpResponse.statusCode) {
-            print("❌ iTunesKit Web API Error: \(httpResponse.statusCode) for \(url.absoluteString)")
+            iTunesLog.debug(" iTunesKit Web API Error: \(httpResponse.statusCode) for \(url.absoluteString)")
             if let errorBody = String(data: data, encoding: .utf8) {
-                print("❌ Error Body: \(errorBody)")
+                iTunesLog.debug(" Error Body: \(errorBody)")
             }
             throw URLError(.badServerResponse)
         }

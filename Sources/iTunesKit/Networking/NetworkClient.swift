@@ -56,7 +56,7 @@ public actor NetworkClient {
         }
 
         guard let finalURL = components?.url else { throw URLError(.badURL) }
-        iTunesDebugLogger.log("iTunesKit: Sending \(method.rawValue) request to \(finalURL.path)")
+        iTunesLog.debug("iTunesKit: Sending \(method.rawValue) request to \(finalURL.path)")
 
         var request = URLRequest(url: finalURL)
         request.httpMethod = method.rawValue
@@ -82,7 +82,7 @@ public actor NetworkClient {
         for attempt in 0 ... maxRetries {
             if attempt > 0 {
                 let delay = Double(pow(2.0, Double(attempt)))
-                iTunesDebugLogger.log("iTunesKit: Retrying \(finalURL.path) in \(delay)s (attempt \(attempt)/\(maxRetries))")
+                iTunesLog.debug("iTunesKit: Retrying \(finalURL.path) in \(delay)s (attempt \(attempt)/\(maxRetries))")
                 try? await Task.sleep(for: .seconds(delay))
             }
 
@@ -90,16 +90,16 @@ public actor NetworkClient {
                 let (data, response) = try await session.data(for: request)
 
                 guard let httpResponse = response as? HTTPURLResponse else {
-                    iTunesDebugLogger.log("iTunesKit: Request failed: No HTTP response")
+                    iTunesLog.debug("iTunesKit: Request failed: No HTTP response")
                     throw URLError(.badServerResponse)
                 }
 
                 if (200 ... 299).contains(httpResponse.statusCode) {
-                    iTunesDebugLogger.log("iTunesKit: Request succeeded (\(data.count) bytes)")
+                    iTunesLog.debug("iTunesKit: Request succeeded (\(data.count) bytes)")
                     return data
                 } else {
                     let statusCode = httpResponse.statusCode
-                    iTunesDebugLogger.log("iTunesKit: Request failed with status \(statusCode)")
+                    iTunesLog.debug("iTunesKit: Request failed with status \(statusCode)")
 
                     if statusCode >= 500 {
                         lastError = URLError(.badServerResponse)
@@ -110,7 +110,7 @@ public actor NetworkClient {
                 }
             } catch {
                 lastError = error
-                iTunesDebugLogger.log("iTunesKit: Request encountered error: \(error.localizedDescription)")
+                iTunesLog.debug("iTunesKit: Request encountered error: \(error.localizedDescription)")
 
                 let nsError = error as NSError
                 let retryableCodes: [Int] = [

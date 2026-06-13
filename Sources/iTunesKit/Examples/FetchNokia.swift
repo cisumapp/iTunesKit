@@ -4,7 +4,7 @@ import iTunesKit
 @main
 struct FetchNokia {
     static func main() async {
-        print("🚀 Starting Apple Music Web API Demo...")
+        iTunesLog.debug(" Starting Apple Music Web API Demo...")
 
         let webClient = iTunesWebServiceClient()
         let catalogService = WebCatalogService(client: webClient)
@@ -12,13 +12,13 @@ struct FetchNokia {
         do {
             // 1. Search for "nokia" by Drake
             let searchTerm = "drake nokia"
-            print("🔎 Searching for: \(searchTerm)...")
+            iTunesLog.debug(" Searching for: \(searchTerm)...")
 
             if let songId = try await catalogService.search(term: searchTerm) {
-                print("✅ Found Song ID: \(songId)")
+                iTunesLog.debug(" Found Song ID: \(songId)")
 
                 // 2. Fetch details including editorial video
-                print("📦 Fetching catalog details for song \(songId)...")
+                iTunesLog.debug(" Fetching catalog details for song \(songId)...")
                 let response = try await catalogService.fetchSongDetails(songId: songId)
 
                 // 3. Extract .motionDetailTall
@@ -27,21 +27,21 @@ struct FetchNokia {
                    let album = response.resources.albums[albumId]
                 {
                     let videoUrl = album.attributes.editorialVideo.motionDetailTall.video
-                    print("\n✨ SUCCESS! Found motionDetailTall for '\(song.attributes.name)':")
-                    print("🔗 Video URL: \(videoUrl)")
+                    iTunesLog.debug("\n SUCCESS! Found motionDetailTall for '\(song.attributes.name)':")
+                    iTunesLog.debug(" Video URL: \(videoUrl)")
 
                     let previewUrl = album.attributes.editorialVideo.motionDetailSquare.previewFrame.url
-                    print("🖼 Preview Frame: \(previewUrl)")
+                    iTunesLog.debug(" Preview Frame: \(previewUrl)")
 
                 } else {
-                    print("⚠️ Could not find editorial video in the response resources.")
+                    iTunesLog.debug(" Could not find editorial video in the response resources.")
                 }
             } else {
-                print("❌ Could not find song ID for '\(searchTerm)'.")
+                iTunesLog.debug(" Could not find song ID for '\(searchTerm)'.")
             }
 
         } catch {
-            print("❌ Error during execution: \(error)")
+            iTunesLog.debug(" Error during execution: \(error)")
         }
     }
 }
@@ -52,23 +52,23 @@ struct FetchNokia {
 // @main
 // struct VerifyCaching {
 //     static func main() async {
-//         print("🧪 Verifying Token Caching Logic...")
+//         iTunesLog.debug(" Verifying Token Caching Logic...")
 
 //         let client = iTunesWebServiceClient()
 //         let catalog = WebCatalogService(client: client)
 
 //         do {
 //             // First call: Should trigger scraping
-//             print("1️⃣ First request...")
+//             iTunesLog.debug(" First request...")
 //             _ = try await catalog.search(term: "drake")
 
 //             // Second call: Should reuse cached token
-//             print("\n2️⃣ Second request...")
+//             iTunesLog.debug("\n Second request...")
 //             _ = try await catalog.search(term: "taylor swift")
 
-//             print("\n✅ Verification complete. Check logs for redundant 'Scraping' messages.")
+//             iTunesLog.debug("\n Verification complete. Check logs for redundant 'Scraping' messages.")
 //         } catch {
-//             print("❌ Error: \(error)")
+//             iTunesLog.debug(" Error: \(error)")
 //         }
 //     }
 // }

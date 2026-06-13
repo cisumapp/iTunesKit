@@ -43,12 +43,12 @@ public actor iTunesWebTokenService {
            let lastScrape = lastScrapeDate,
            now.timeIntervalSince(lastScrape) < minScrapeInterval
         {
-            print("⚠️ iTunesKit: Rate limiting scrape. Using last known token (or failing if none).")
+            iTunesLog.debug(" iTunesKit: Rate limiting scrape. Using last known token (or failing if none).")
             if let token = validCachedToken(now: now) { return token }
             throw URLError(.cannotConnectToHost)
         }
 
-        print("🔍 iTunesKit: Scraping Apple Music Web Player...")
+        iTunesLog.debug(" iTunesKit: Scraping Apple Music Web Player...")
 
         guard let url = URL(string: Secrets.webNewURL) else {
             throw URLError(.badURL)
@@ -70,13 +70,13 @@ public actor iTunesWebTokenService {
         // Find the main application JS file (e.g., /assets/index~[hash].js)
         let jsPattern = "/assets/index~[a-zA-Z0-9]+\\.js"
         guard let jsRange = html.range(of: jsPattern, options: .regularExpression) else {
-            print("❌ iTunesKit: Could not find application script URL in HTML")
+            iTunesLog.debug(" iTunesKit: Could not find application script URL in HTML")
             throw URLError(.cannotParseResponse)
         }
 
         let jsPath = String(html[jsRange])
         let jsURLString = "\(Secrets.webURL)\(jsPath)"
-        print("🚀 iTunesKit: Fetching application script: \(jsURLString)")
+        iTunesLog.debug(" iTunesKit: Fetching application script: \(jsURLString)")
 
         guard let jsURL = URL(string: jsURLString) else {
             throw URLError(.badURL)
@@ -95,11 +95,11 @@ public actor iTunesWebTokenService {
             tokenExpiry = Date().addingTimeInterval(7200)
             lastScrapeDate = scrapeDate
             persistState()
-            print("✅ iTunesKit: Successfully obtained devToken from script")
+            iTunesLog.debug(" iTunesKit: Successfully obtained devToken from script")
             return token
         }
 
-        print("❌ iTunesKit: Failed to find devToken in application script")
+        iTunesLog.debug(" iTunesKit: Failed to find devToken in application script")
         throw URLError(.cannotParseResponse)
     }
 
@@ -155,7 +155,7 @@ public actor iTunesWebTokenService {
             let data = try encoder.encode(state)
             try data.write(to: cacheURL, options: [.atomic])
         } catch {
-            print("⚠️ iTunesKit: Failed to persist devToken cache: \(error)")
+            iTunesLog.debug(" iTunesKit: Failed to persist devToken cache: \(error)")
         }
     }
 
