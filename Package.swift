@@ -15,23 +15,13 @@ let package = Package(
             name: "iTunesKit",
             targets: ["iTunesKit"]
         ),
-        .executable(
-            name: "FetchNokia",
-            targets: ["FetchNokia"]
-        ),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "iTunesKit",
-            path: "Sources",
-            exclude: ["iTunesKit/Examples"]
-        ),
-        .executableTarget(
-            name: "FetchNokia",
-            dependencies: ["iTunesKit"],
-            path: "Sources/iTunesKit/Examples"
+            path: "Sources"
         ),
         .testTarget(
             name: "iTunesKitTests",
